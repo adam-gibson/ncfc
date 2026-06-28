@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Norwich City — Season Ticket Tracker</title>
+<style>
+  :root {
+    --yellow: #FFF200;
+    --green: #00A650;
+    --dark-green: #007A3D;
+    --light-green: #E8F8EF;
+    --white: #ffffff;
+    --grey-100: #f5f5f5;
+    --grey-200: #e8e8e8;
+    --grey-400: #aaaaaa;
+    --grey-700: #444444;
+    --text: #1a1a1a;
+    --radius: 8px;
+    --shadow: 0 2px 8px rgba(0,0,0,0.10);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', Arial, sans-serif; background: var(--grey-100); color: var(--text); min-height: 100vh; }
+
+  /* LOGIN */
+  #login-screen { display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:100vh; background:linear-gradient(160deg,var(--green) 0%,var(--dark-green) 100%); }
+  .login-card { background:var(--white); border-radius:12px; padding:2.5rem 2rem; width:320px; box-shadow:0 8px 32px rgba(0,0,0,0.25); text-align:center; }
+  .login-card .crest { font-size:3rem; margin-bottom:0.5rem; }
+  .login-card h1 { font-size:1.15rem; font-weight:700; color:var(--dark-green); margin-bottom:0.25rem; }
+  .login-card p { font-size:0.82rem; color:var(--grey-400); margin-bottom:1.5rem; }
+  .login-card input { width:100%; padding:0.65rem 1rem; border:2px solid var(--grey-200); border-radius:var(--radius); font-size:1rem; margin-bottom:0.75rem; outline:none; transition:border-color 0.2s; }
+  .login-card input:focus { border-color:var(--green); }
+  .btn-primary { width:100%; padding:0.7rem; background:var(--green); color:var(--white); border:none; border-radius:var(--radius); font-size:1rem; font-weight:700; cursor:pointer; transition:background 0.2s; }
+  .btn-primary:hover { background:var(--dark-green); }
+  .login-error { color:#c0392b; font-size:0.82rem; margin-top:0.5rem; display:none; }
+
+  /* SETUP */
+  #setup-screen { display:none; flex-direction:column; align-items:center; justify-content:center; min-height:100vh; background:linear-gradient(160deg,var(--green) 0%,var(--dark-green) 100%); }
+  .setup-card { background:var(--white); border-radius:12px; padding:2.5rem 2rem; width:400px; box-shadow:0 8px 32px rgba(0,0,0,0.25); }
+  .setup-card h2 { font-size:1.1rem; color:var(--dark-green); margin-bottom:0.5rem; }
+  .setup-card p { font-size:0.82rem; color:var(--grey-700); margin-bottom:1rem; line-height:1.5; }
+  .setup-card a { color:var(--dark-green); }
+  .setup-card input { width:100%; padding:0.65rem 1rem; border:2px solid var(--grey-200); border-radius:var(--radius); font-size:0.9rem; margin-bottom:0.75rem; outline:none; }
+  .setup-card input:focus { border-color:var(--green); }
+
+  /* APP */
+  #app { display:none; }
+  header { background:var(--green); box-shadow:var(--shadow); }
+  .header-inner { max-width:1100px; margin:0 auto; display:flex; align-items:center; justify-content:space-between; padding:0.75rem 1.5rem; }
+  .header-title { display:flex; align-items:center; gap:0.75rem; }
+  .header-title .badge { background:var(--yellow); color:var(--dark-green); font-weight:900; font-size:1.1rem; padding:0.3rem 0.7rem; border-radius:6px; letter-spacing:0.5px; }
+  .header-title h1 { color:var(--white); font-size:1.05rem; font-weight:700; }
+  .header-actions { display:flex; gap:0.5rem; align-items:center; flex-wrap:wrap; }
+  .btn-sm { padding:0.35rem 0.85rem; border-radius:6px; font-size:0.8rem; font-weight:600; cursor:pointer; border:2px solid var(--white); background:transparent; color:var(--white); transition:all 0.15s; }
+  .btn-sm:hover { background:var(--white); color:var(--green); }
+
+  /* TALLY */
+  .tally-bar { background:var(--white); border-bottom:3px solid var(--yellow); }
+  .tally-inner { max-width:1100px; margin:0 auto; display:flex; }
+  .tally-card { flex:1; padding:1rem 1.5rem; text-align:center; border-right:1px solid var(--grey-200); }
+  .tally-card:last-child { border-right:none; }
+  .tally-card .name { font-size:0.75rem; font-weight:700; text-transform:uppercase; letter-spacing:0.08em; color:var(--grey-400); margin-bottom:0.2rem; }
+  .tally-card .count { font-size:2rem; font-weight:900; line-height:1; }
+  .tally-card .label { font-size:0.7rem; color:var(--grey-400); margin-top:0.15rem; }
+  .tally-card.adam .count { color:var(--dark-green); }
+  .tally-card.nick .count { color:#c0392b; }
+  .tally-card.unassigned .count { color:var(--grey-400); }
+  .tally-card.total .count { color:var(--text); }
+
+  /* TABLE */
+  .main-content { max-width:1100px; margin:1.5rem auto; padding:0 1rem; }
+  .section-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:0.75rem; }
+  .section-header h2 { font-size:1rem; font-weight:700; color:var(--dark-green); display:flex; align-items:center; gap:0.5rem; }
+  .section-header h2 .dot { width:10px; height:10px; border-radius:50%; background:var(--green); display:inline-block; }
+  .status-badge { font-size:0.72rem; padding:0.2rem 0.6rem; border-radius:20px; font-weight:600; }
+  .status-ok { background:var(--light-green); color:var(--dark-green); }
+  .status-err { background:#fdecea; color:#c0392b; }
+  .status-loading { background:#fff8e1; color:#856404; }
+
+  table { width:100%; border-collapse:collapse; background:var(--white); border-radius:var(--radius); overflow:hidden; box-shadow:var(--shadow); margin-bottom:2rem; }
+  thead { background:var(--dark-green); color:var(--white); }
+  thead th { padding:0.65rem 1rem; text-align:left; font-size:0.78rem; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; }
+  tbody tr { border-bottom:1px solid var(--grey-200); transition:background 0.1s; }
+  tbody tr:last-child { border-bottom:none; }
+  tbody tr:hover { background:var(--grey-100); }
+  tbody tr.past { opacity:0.55; }
+  td { padding:0.6rem 1rem; font-size:0.88rem; vertical-align:middle; }
+  .td-date { white-space:nowrap; font-weight:600; }
+  .td-day { color:var(--grey-400); font-size:0.78rem; }
+  .td-time { white-space:nowrap; }
+  .td-opponent { font-weight:600; }
+
+  .venue-chip { display:inline-block; font-size:0.68rem; font-weight:700; padding:0.15rem 0.5rem; border-radius:4px; text-transform:uppercase; letter-spacing:0.05em; }
+  .home-chip { background:var(--light-green); color:var(--dark-green); }
+  .away-chip { background:#fff8e1; color:#856404; }
+
+  select.assignee { padding:0.3rem 0.5rem; border:2px solid var(--grey-200); border-radius:6px; font-size:0.82rem; font-weight:600; background:var(--white); cursor:pointer; outline:none; transition:border-color 0.15s; min-width:90px; }
+  select.assignee:focus { border-color:var(--green); }
+  select.assignee[data-val="Adam"] { border-color:var(--green); color:var(--dark-green); }
+  select.assignee[data-val="Nick"] { border-color:#c0392b; color:#c0392b; }
+  select.assignee[data-val=""] { color:var(--grey-400); }
+
+  .saving-indicator { font-size:0.7rem; color:var(--grey-400); font-style:italic; }
+
+  .result-chip { font-size:0.72rem; font-weight:700; padding:0.15rem 0.45rem; border-radius:4px; }
+  .result-w { background:#d4edda; color:#155724; }
+  .result-d { background:#fff3cd; color:#856404; }
+  .result-l { background:#f8d7da; color:#721c24; }
+
+  .no-data { text-align:center; padding:3rem; color:var(--grey-400); font-size:0.9rem; }
+
+  footer { text-align:center; padding:1.5rem; font-size:0.72rem; color:var(--grey-400); }
+
+  /* MODAL */
+  .modal-backdrop { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.45); z-index:100; align-items:center; justify-content:center; }
+  .modal-backdrop.open { display:flex; }
+  .modal { background:var(--white); border-radius:12px; padding:2rem; width:340px; box-shadow:0 8px 32px rgba(0,0,0,0.25); }
+  .modal h3 { font-size:1rem; margin-bottom:1rem; color:var(--dark-green); }
+  .modal input { width:100%; padding:0.6rem 0.9rem; border:2px solid var(--grey-200); border-radius:var(--radius); font-size:0.9rem; margin-bottom:0.6rem; outline:none; }
+  .modal input:focus { border-color:var(--green); }
+  .modal-actions { display:flex; gap:0.5rem; margin-top:0.5rem; }
+  .btn-cancel { flex:1; padding:0.6rem; border-radius:var(--radius); border:2px solid var(--grey-200); background:transparent; font-size:0.88rem; cursor:pointer; font-weight:600; }
+  .msg { font-size:0.78rem; margin-top:0.3rem; }
+  .msg.ok { color:var(--dark-green); }
+  .msg.err { color:#c0392b; }
+
+  @media (max-width:680px) {
+    .header-title h1 { display:none; }
+    .tally-card .count { font-size:1.4rem; }
+    td, th { padding:0.5rem 0.6rem; }
+    .td-day { display:none; }
+  }
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="login-screen">
+  <div class="login-card">
+    <div class="crest">🟡🟢</div>
+    <h1>Norwich City Season Tickets</h1>
+    <p>Adam &amp; Nick · 2025–26</p>
+    <input type="password" id="pw-input" placeholder="Password" autocomplete="current-password">
+    <button class="btn-primary" onclick="doLogin()">Sign In</button>
+    <p class="login-error" id="login-error">Incorrect password.</p>
+  </div>
+</div>
+
+<!-- SETUP -->
+<div id="setup-screen">
+  <div class="setup-card">
+    <h2>⚽ One-time setup</h2>
+    <p>Register for a free API key at <a href="https://www.football-data.org/client/register" target="_blank">football-data.org</a> and paste it below. This only needs doing once — it will be stored in Firebase for both of you.</p>
+    <input type="text" id="api-key-input" placeholder="Paste your football-data.org API key">
+    <button class="btn-primary" onclick="saveApiKey()">Save &amp; Load Fixtures</button>
+    <p class="msg err" id="setup-error" style="display:none"></p>
+  </div>
+</div>
+
+<!-- MAIN APP -->
+<div id="app">
+  <header>
+    <div class="header-inner">
+      <div class="header-title">
+        <span class="badge">NCFC</span>
+        <h1>Season Ticket Tracker · 2025–26</h1>
+      </div>
+      <div class="header-actions">
+        <span id="api-status" class="status-badge status-loading">Loading…</span>
+        <button class="btn-sm" onclick="loadFixtures()">↻ Refresh</button>
+        <button class="btn-sm" onclick="openChangePw()">Password</button>
+        <button class="btn-sm" onclick="logout()">Sign Out</button>
+      </div>
+    </div>
+  </header>
+
+  <div class="tally-bar">
+    <div class="tally-inner">
+      <div class="tally-card adam">
+        <div class="name">Adam</div>
+        <div class="count" id="tally-adam">0</div>
+        <div class="label">home games</div>
+      </div>
+      <div class="tally-card nick">
+        <div class="name">Nick</div>
+        <div class="count" id="tally-nick">0</div>
+        <div class="label">home games</div>
+      </div>
+      <div class="tally-card unassigned">
+        <div class="name">Unassigned</div>
+        <div class="count" id="tally-unassigned">0</div>
+        <div class="label">home games</div>
+      </div>
+      <div class="tally-card total">
+        <div class="name">Total Home</div>
+        <div class="count" id="tally-total">0</div>
+        <div class="label">fixtures</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="main-content">
+    <div class="section-header">
+      <h2><span class="dot"></span> Home Games — Carrow Road</h2>
+      <span id="save-status" class="saving-indicator"></span>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th>Date</th><th>Day</th><th>KO</th><th>Opponent</th><th>Result</th><th>Attending</th>
+        </tr>
+      </thead>
+      <tbody id="home-body">
+        <tr><td colspan="6" class="no-data">Loading fixtures…</td></tr>
+      </tbody>
+    </table>
+
+    <div class="section-header">
+      <h2><span class="dot" style="background:#856404"></span> Away Fixtures</h2>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th>Date</th><th>Day</th><th>KO</th><th>Opponent</th><th>Result</th>
+        </tr>
+      </thead>
+      <tbody id="away-body">
+        <tr><td colspan="5" class="no-data">Loading fixtures…</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <footer>
+    Fixture data via <a href="https://www.football-data.org" target="_blank">football-data.org</a> · Assignments stored in Firebase · Synced across devices
+  </footer>
+</div>
+
+<!-- CHANGE PASSWORD MODAL -->
+<div class="modal-backdrop" id="pw-modal">
+  <div class="modal">
+    <h3>Change Password</h3>
+    <input type="password" id="new-pw-1" placeholder="New password">
+    <input type="password" id="new-pw-2" placeholder="Confirm new password">
+    <p class="msg" id="pw-modal-msg"></p>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeChangePw()">Cancel</button>
+      <button class="btn-primary" style="flex:1" onclick="changePassword()">Save</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── CONFIG ─────────────────────────────────────────────────────────────────
+const FIREBASE_URL    = 'https://ncfc-fixtures-default-rtdb.firebaseio.com';
+const NORWICH_TEAM_ID = 68;
+const COMPETITION     = 'ELC';
+const SEASON          = 2025;
+
+// Default password hash = "canaries" — change on first login
+const DEFAULT_PW_HASH = 'c1c7a8a0b6e2f3e1d0a5f9b2c3e4d7f8a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6';
+
+// ── UTILS ──────────────────────────────────────────────────────────────────
+async function sha256(str) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+}
+
+// ── FIREBASE REST HELPERS ──────────────────────────────────────────────────
+async function fbGet(path) {
+  const r = await fetch(`${FIREBASE_URL}/${path}.json`);
+  if (!r.ok) throw new Error('Firebase read failed');
+  return r.json();
+}
+
+async function fbSet(path, value) {
+  const r = await fetch(`${FIREBASE_URL}/${path}.json`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(value)
+  });
+  if (!r.ok) throw new Error('Firebase write failed');
+  return r.json();
+}
+
+// ── AUTH ───────────────────────────────────────────────────────────────────
+async function doLogin() {
+  const pw   = document.getElementById('pw-input').value;
+  const hash = await sha256(pw);
+  let stored;
+  try { stored = await fbGet('config/pw_hash'); } catch { stored = null; }
+  if (!stored) stored = DEFAULT_PW_HASH;
+  if (hash === stored) {
+    sessionStorage.setItem('session', '1');
+    showApp();
+  } else {
+    document.getElementById('login-error').style.display = 'block';
+  }
+}
+
+document.getElementById('pw-input').addEventListener('keydown', e => { if (e.key==='Enter') doLogin(); });
+
+function logout() { sessionStorage.removeItem('session'); location.reload(); }
+
+function openChangePw()  { document.getElementById('pw-modal').classList.add('open'); }
+function closeChangePw() { document.getElementById('pw-modal').classList.remove('open'); }
+
+async function changePassword() {
+  const p1  = document.getElementById('new-pw-1').value;
+  const p2  = document.getElementById('new-pw-2').value;
+  const msg = document.getElementById('pw-modal-msg');
+  if (!p1) { msg.className='msg err'; msg.textContent='Enter a password.'; return; }
+  if (p1!==p2) { msg.className='msg err'; msg.textContent='Passwords do not match.'; return; }
+  const hash = await sha256(p1);
+  await fbSet('config/pw_hash', hash);
+  msg.className='msg ok'; msg.textContent='Saved!';
+  setTimeout(closeChangePw, 1200);
+}
+
+// ── SETUP ──────────────────────────────────────────────────────────────────
+async function saveApiKey() {
+  const key = document.getElementById('api-key-input').value.trim();
+  if (!key) { showSetupErr('Please enter your API key.'); return; }
+  try {
+    await fbSet('config/fd_api_key', key);
+    document.getElementById('setup-screen').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+    loadFixtures();
+  } catch(e) {
+    showSetupErr('Could not save to Firebase. Check your database rules are set to allow read/write.');
+  }
+}
+
+function showSetupErr(msg) {
+  const el = document.getElementById('setup-error');
+  el.textContent = msg; el.style.display = 'block';
+}
+
+// ── SHOW APP ───────────────────────────────────────────────────────────────
+async function showApp() {
+  document.getElementById('login-screen').style.display = 'none';
+  let apiKey;
+  try { apiKey = await fbGet('config/fd_api_key'); } catch { apiKey = null; }
+  if (!apiKey) {
+    document.getElementById('setup-screen').style.display = 'flex';
+  } else {
+    document.getElementById('app').style.display = 'block';
+    loadFixtures();
+  }
+}
+
+// ── FIXTURES ───────────────────────────────────────────────────────────────
+async function loadFixtures() {
+  setStatus('loading', 'Loading…');
+  let apiKey;
+  try { apiKey = await fbGet('config/fd_api_key'); } catch { setStatus('err','Firebase error'); return; }
+  if (!apiKey) { setStatus('err','No API key'); return; }
+
+  try {
+    const url = `https://api.football-data.org/v4/teams/${NORWICH_TEAM_ID}/matches?season=${SEASON}&competitions=${COMPETITION}`;
+    const res = await fetch(url, { headers: { 'X-Auth-Token': apiKey } });
+    if (!res.ok) {
+      if (res.status===401||res.status===403) { setStatus('err','Invalid API key'); return; }
+      throw new Error(res.statusText);
+    }
+    const data = await res.json();
+    const assignments = await fbGet('assignments').catch(()=>({}));
+    renderFixtures(data.matches || [], assignments || {});
+    setStatus('ok', `Updated ${new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}`);
+  } catch(e) {
+    setStatus('err','Failed to load');
+    console.error(e);
+  }
+}
+
+function setStatus(type, text) {
+  const el = document.getElementById('api-status');
+  el.textContent = text;
+  el.className = 'status-badge ' + (type==='ok'?'status-ok':type==='err'?'status-err':'status-loading');
+}
+
+const DAYS   = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+function fmtDate(dt) { const d=new Date(dt); return `${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`; }
+function fmtDay(dt)  { return DAYS[new Date(dt).getDay()]; }
+function fmtTime(dt) { return new Date(dt).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit',timeZone:'Europe/London'}); }
+
+function fmtResult(m) {
+  const s = m.score;
+  if (!s||!s.fullTime||s.fullTime.home==null) return '—';
+  const hg=s.fullTime.home, ag=s.fullTime.away;
+  const isHome = m.homeTeam.id===NORWICH_TEAM_ID;
+  const nc=isHome?hg:ag, opp=isHome?ag:hg;
+  let chip, res;
+  if (nc>opp)      { chip='result-w'; res='W'; }
+  else if (nc===opp){ chip='result-d'; res='D'; }
+  else              { chip='result-l'; res='L'; }
+  return `<span class="result-chip ${chip}">${res} ${hg}–${ag}</span>`;
+}
+
+function renderFixtures(matches, assignments) {
+  const now  = Date.now();
+  const home = matches.filter(m => m.homeTeam.id===NORWICH_TEAM_ID);
+  const away = matches.filter(m => m.awayTeam.id===NORWICH_TEAM_ID);
+
+  const hBody = document.getElementById('home-body');
+  if (!home.length) {
+    hBody.innerHTML = '<tr><td colspan="6" class="no-data">No home fixtures found for 2025–26 yet.</td></tr>';
+  } else {
+    hBody.innerHTML = home.map(m => {
+      const id  = String(m.id);
+      const val = assignments[id] || '';
+      const past = new Date(m.utcDate) < now;
+      return `<tr class="${past?'past':''}">
+        <td class="td-date">${fmtDate(m.utcDate)}</td>
+        <td class="td-day">${fmtDay(m.utcDate)}</td>
+        <td class="td-time">${fmtTime(m.utcDate)}</td>
+        <td class="td-opponent"><span class="venue-chip home-chip">H</span> ${m.awayTeam.shortName||m.awayTeam.name}</td>
+        <td>${fmtResult(m)}</td>
+        <td><select class="assignee" data-val="${val}" data-id="${id}" onchange="assign(this)">
+          <option value="" ${!val?'selected':''}>— Pick —</option>
+          <option value="Adam" ${val==='Adam'?'selected':''}>Adam</option>
+          <option value="Nick" ${val==='Nick'?'selected':''}>Nick</option>
+        </select></td>
+      </tr>`;
+    }).join('');
+  }
+
+  const aBody = document.getElementById('away-body');
+  if (!away.length) {
+    aBody.innerHTML = '<tr><td colspan="5" class="no-data">No away fixtures found for 2025–26 yet.</td></tr>';
+  } else {
+    aBody.innerHTML = away.map(m => {
+      const past = new Date(m.utcDate) < now;
+      return `<tr class="${past?'past':''}">
+        <td class="td-date">${fmtDate(m.utcDate)}</td>
+        <td class="td-day">${fmtDay(m.utcDate)}</td>
+        <td class="td-time">${fmtTime(m.utcDate)}</td>
+        <td class="td-opponent"><span class="venue-chip away-chip">A</span> ${m.homeTeam.shortName||m.homeTeam.name}</td>
+        <td>${fmtResult(m)}</td>
+      </tr>`;
+    }).join('');
+  }
+
+  updateTally(home, assignments);
+}
+
+// ── ASSIGN ─────────────────────────────────────────────────────────────────
+let saveTimer = null;
+const pendingAssignments = {};
+
+function assign(sel) {
+  const id  = sel.dataset.id;
+  const val = sel.value;
+  sel.dataset.val = val;
+  pendingAssignments[id] = val || null;
+  setSaveStatus('Saving…');
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(flushAssignments, 600);
+  recalcTally();
+}
+
+async function flushAssignments() {
+  try {
+    // Read current, merge, write back
+    const current = await fbGet('assignments').catch(()=>({})) || {};
+    for (const [id, val] of Object.entries(pendingAssignments)) {
+      if (val) { current[id] = val; } else { delete current[id]; }
+      delete pendingAssignments[id];
+    }
+    await fbSet('assignments', current);
+    setSaveStatus('Saved ✓');
+    setTimeout(()=>setSaveStatus(''), 2000);
+  } catch(e) {
+    setSaveStatus('Save failed — check connection');
+  }
+}
+
+function setSaveStatus(msg) {
+  document.getElementById('save-status').textContent = msg;
+}
+
+function recalcTally() {
+  let adam=0, nick=0, un=0, total=0;
+  document.querySelectorAll('select.assignee').forEach(s => {
+    total++;
+    const v = s.value;
+    if (v==='Adam') adam++;
+    else if (v==='Nick') nick++;
+    else un++;
+  });
+  document.getElementById('tally-adam').textContent       = adam;
+  document.getElementById('tally-nick').textContent       = nick;
+  document.getElementById('tally-unassigned').textContent = un;
+  document.getElementById('tally-total').textContent      = total;
+}
+
+function updateTally(homeMatches, assignments) {
+  let adam=0, nick=0, total=homeMatches.length;
+  homeMatches.forEach(m => {
+    const v = assignments[String(m.id)];
+    if (v==='Adam') adam++;
+    else if (v==='Nick') nick++;
+  });
+  document.getElementById('tally-adam').textContent       = adam;
+  document.getElementById('tally-nick').textContent       = nick;
+  document.getElementById('tally-unassigned').textContent = total-adam-nick;
+  document.getElementById('tally-total').textContent      = total;
+}
+
+// ── INIT ───────────────────────────────────────────────────────────────────
+if (sessionStorage.getItem('session')==='1') showApp();
+</script>
+</body>
+</html>
