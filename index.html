@@ -356,7 +356,8 @@ async function loadFixtures() {
   if (!apiKey) { setStatus('err','No API key'); return; }
 
   try {
-    const url = `https://api.football-data.org/v4/teams/${NORWICH_TEAM_ID}/matches?season=${SEASON}&competitions=${COMPETITION}`;
+    const apiUrl = `https://api.football-data.org/v4/teams/${NORWICH_TEAM_ID}/matches?season=${SEASON}&competitions=${COMPETITION}`;
+    const url = `https://corsproxy.io/?${encodeURIComponent(apiUrl)}`;
     const res = await fetch(url, { headers: { 'X-Auth-Token': apiKey } });
     const data = await res.json();
     console.log('API status:', res.status, JSON.stringify(data).substring(0,300));
