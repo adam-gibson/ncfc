@@ -358,17 +358,25 @@ async function loadFixtures() {
   try {
     const url = `https://api.football-data.org/v4/teams/${NORWICH_TEAM_ID}/matches?season=${SEASON}&competitions=${COMPETITION}`;
     const res = await fetch(url, { headers: { 'X-Auth-Token': apiKey } });
+    const data = await res.json();
+    console.log('API status:', res.status, JSON.stringify(data).substring(0,300));
     if (!res.ok) {
       if (res.status===401||res.status===403) { setStatus('err','Invalid API key'); return; }
-      throw new Error(res.statusText);
+      setStatus('err', `Error ${res.status}: ${data.message||res.statusText}`);
+      return;
     }
-    const data = await res.json();
+    if (!data.matches || data.matches.length===0) {
+      setStatus('err','No fixtures found yet');
+      document.getElementById('home-body').innerHTML = '<tr><td colspan="6" class="no-data">No 2025u201326 fixtures published yet u2014 check back soon.</td></tr>';
+      document.getElementById('away-body').innerHTML = '<tr><td colspan="5" class="no-data">No 2025u201326 fixtures published yet.</td></tr>';
+      return;
+    }
     const assignments = await fbGet('assignments').catch(()=>({}));
     renderFixtures(data.matches || [], assignments || {});
     setStatus('ok', `Updated ${new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}`);
   } catch(e) {
-    setStatus('err','Failed to load');
-    console.error(e);
+    setStatus('err',`Failed: ${e.message}`);
+    console.error('Fetch error:', e);
   }
 }
 
