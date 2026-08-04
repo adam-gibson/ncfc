@@ -629,7 +629,7 @@ async function flushAssignments(opp, date, oldVal, newVal, slot) {
 
     // Email alert
     if (newVal !== oldVal) {
-      const msg = `NCFC Ticket Tracker — Assignment Updated\n\nGame: ${opp} (${date})\nSlot: ${slot}\nChanged to: ${newVal || '(unassigned)'}`;
+      const msg = `NCFC Ticket Tracker — Assignment Updated\n\nGame: ${opp} (${date})\nSlot: ${slot}\nChanged from: ${oldVal || '(unassigned)'}\nChanged to: ${newVal || '(unassigned)'}`;
       sendAlert(msg);
     }
   } catch(e) {
