@@ -4,12 +4,15 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Norwich City — Season Ticket Tracker</title>
+<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 <style>
   :root {
     --yellow: #FFF200;
     --green: #00A650;
     --dark-green: #007A3D;
     --light-green: #E8F8EF;
+    --double-bg: #fffde7;
+    --double-border: #f9a825;
     --white: #ffffff;
     --grey-100: #f5f5f5;
     --grey-200: #e8e8e8;
@@ -84,6 +87,11 @@
   tbody tr:last-child { border-bottom:none; }
   tbody tr:hover { background:var(--grey-100); }
   tbody tr.past { opacity:0.55; }
+  tbody tr.double-ticket { background:var(--double-bg); border-left:4px solid var(--double-border); }
+  tbody tr.double-ticket:hover { background:#fff9c4; }
+  tbody tr.double-extra { background:var(--double-bg); border-left:4px solid var(--double-border); border-top:none; }
+  tbody tr.double-extra td { padding-top:0.3rem; padding-bottom:0.6rem; }
+
   td { padding:0.6rem 1rem; font-size:0.88rem; vertical-align:middle; }
   .td-date { white-space:nowrap; font-weight:600; }
   .td-day { color:var(--grey-400); font-size:0.78rem; }
@@ -93,12 +101,20 @@
   .venue-chip { display:inline-block; font-size:0.68rem; font-weight:700; padding:0.15rem 0.5rem; border-radius:4px; text-transform:uppercase; letter-spacing:0.05em; }
   .home-chip { background:var(--light-green); color:var(--dark-green); }
   .away-chip { background:#fff8e1; color:#856404; }
+  .double-chip { background:var(--double-border); color:#fff; font-size:0.65rem; font-weight:700; padding:0.15rem 0.45rem; border-radius:4px; margin-left:0.3rem; vertical-align:middle; }
 
   select.assignee { padding:0.3rem 0.5rem; border:2px solid var(--grey-200); border-radius:6px; font-size:0.82rem; font-weight:600; background:var(--white); cursor:pointer; outline:none; transition:border-color 0.15s; min-width:90px; }
   select.assignee:focus { border-color:var(--green); }
   select.assignee[data-val="Adam"] { border-color:var(--green); color:var(--dark-green); }
   select.assignee[data-val="Nick"] { border-color:#c0392b; color:#c0392b; }
   select.assignee[data-val=""] { color:var(--grey-400); }
+
+  /* EXTRA TICKET INPUTS */
+  .extra-tickets { display:flex; gap:0.5rem; align-items:center; flex-wrap:wrap; }
+  .extra-tickets label { font-size:0.72rem; color:var(--grey-400); font-weight:600; white-space:nowrap; }
+  input.extra-name { padding:0.3rem 0.5rem; border:2px solid var(--double-border); border-radius:6px; font-size:0.82rem; background:var(--white); outline:none; width:110px; transition:border-color 0.15s; }
+  input.extra-name:focus { border-color:#e65100; }
+  input.extra-name::placeholder { color:var(--grey-400); font-style:italic; }
 
   .saving-indicator { font-size:0.7rem; color:var(--grey-400); font-style:italic; }
 
@@ -108,13 +124,12 @@
   .result-l { background:#f8d7da; color:#721c24; }
 
   .no-data { text-align:center; padding:3rem; color:var(--grey-400); font-size:0.9rem; }
-
   footer { text-align:center; padding:1.5rem; font-size:0.72rem; color:var(--grey-400); }
 
   /* MODAL */
   .modal-backdrop { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.45); z-index:100; align-items:center; justify-content:center; }
   .modal-backdrop.open { display:flex; }
-  .modal { background:var(--white); border-radius:12px; padding:2rem; width:340px; box-shadow:0 8px 32px rgba(0,0,0,0.25); }
+  .modal { background:var(--white); border-radius:12px; padding:2rem; width:360px; box-shadow:0 8px 32px rgba(0,0,0,0.25); }
   .modal h3 { font-size:1rem; margin-bottom:1rem; color:var(--dark-green); }
   .modal input { width:100%; padding:0.6rem 0.9rem; border:2px solid var(--grey-200); border-radius:var(--radius); font-size:0.9rem; margin-bottom:0.6rem; outline:none; }
   .modal input:focus { border-color:var(--green); }
@@ -127,8 +142,10 @@
   @media (max-width:680px) {
     .header-title h1 { display:none; }
     .tally-card .count { font-size:1.4rem; }
-    td, th { padding:0.5rem 0.6rem; }
+    td, th { padding:0.5rem 0.5rem; }
     .td-day { display:none; }
+    input.extra-name { width:95px; }
+    .extra-tickets { gap:0.35rem; }
   }
 </style>
 </head>
@@ -150,7 +167,7 @@
 <div id="setup-screen">
   <div class="setup-card">
     <h2>⚽ One-time setup</h2>
-    <p>Register for a free API key at <a href="https://www.football-data.org/client/register" target="_blank">football-data.org</a> and paste it below. This only needs doing once — it will be stored in Firebase for both of you.</p>
+    <p>Register for a free API key at <a href="https://www.football-data.org/client/register" target="_blank">football-data.org</a> and paste it below. Stored in Firebase for both of you.</p>
     <input type="text" id="api-key-input" placeholder="Paste your football-data.org API key">
     <button class="btn-primary" onclick="saveApiKey()">Save &amp; Load Fixtures</button>
     <p class="msg err" id="setup-error" style="display:none"></p>
@@ -169,6 +186,7 @@
         <span id="api-status" class="status-badge status-loading">Loading…</span>
         <button class="btn-sm" onclick="loadFixtures()">↻ Refresh</button>
         <button class="btn-sm" onclick="openChangePw()">Password</button>
+        <button class="btn-sm" onclick="openEmailSettings()">Emails</button>
         <button class="btn-sm" onclick="logout()">Sign Out</button>
       </div>
     </div>
@@ -249,6 +267,21 @@
   </div>
 </div>
 
+<!-- EMAIL SETTINGS MODAL -->
+<div class="modal-backdrop" id="email-modal">
+  <div class="modal">
+    <h3>Email Notification Addresses</h3>
+    <p style="font-size:0.8rem;color:var(--grey-700);margin-bottom:1rem;">Alerts are sent to these addresses when assignments or fixture details change.</p>
+    <input type="email" id="email-1" placeholder="Your email (e.g. gibsona@gmail.com)">
+    <input type="email" id="email-2" placeholder="Nick's email (add later)">
+    <p class="msg" id="email-modal-msg"></p>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeEmailSettings()">Cancel</button>
+      <button class="btn-primary" style="flex:1" onclick="saveEmailSettings()">Save</button>
+    </div>
+  </div>
+</div>
+
 <script>
 // ── CONFIG ─────────────────────────────────────────────────────────────────
 const FIREBASE_URL    = 'https://ncfc-fixtures-default-rtdb.europe-west1.firebasedatabase.app';
@@ -256,8 +289,27 @@ const NORWICH_TEAM_ID = 68;
 const COMPETITION     = 'ELC';
 const SEASON          = 2026;
 
-// Default password hash = "canaries" — change on first login
+const EMAILJS_PUBLIC_KEY  = 'E8eymENtCyHZaaj5l';
+const EMAILJS_SERVICE_ID  = 'service_6g4yb2e';
+const EMAILJS_TEMPLATE_ID = 'template_b1q92wo';
+
+// Default password = "canaries"
 const DEFAULT_PW_HASH = '57c2cf3e97684229106516a7f2274f75e10681c637e6c240eff4f96e15f47375';
+
+// Games with 2 extra tickets (match by date string YYYY-MM-DD and opponent substring)
+const DOUBLE_TICKET_GAMES = [
+  { date: '2026-09-09', opponent: 'Birmingham' },
+  { date: '2026-10-14', opponent: 'Southampton' },
+  { date: '2026-11-24', opponent: 'Queens Park' },
+  { date: '2026-12-29', opponent: 'Charlton' },
+  { date: '2027-01-26', opponent: 'Derby' },
+  { date: '2027-03-02', opponent: 'Millwall' },
+  { date: '2027-04-10', opponent: 'Sheffield United' },
+  { date: '2027-04-24', opponent: 'Blackburn' },
+];
+
+// ── EMAILJS INIT ───────────────────────────────────────────────────────────
+emailjs.init(EMAILJS_PUBLIC_KEY);
 
 // ── UTILS ──────────────────────────────────────────────────────────────────
 async function sha256(str) {
@@ -265,18 +317,15 @@ async function sha256(str) {
   return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
 }
 
-// ── FIREBASE REST HELPERS ──────────────────────────────────────────────────
+// ── FIREBASE REST ──────────────────────────────────────────────────────────
 async function fbGet(path) {
   const r = await fetch(`${FIREBASE_URL}/${path}.json`);
   if (!r.ok) throw new Error('Firebase read failed');
   return r.json();
 }
-
 async function fbSet(path, value) {
   const r = await fetch(`${FIREBASE_URL}/${path}.json`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(value)
+    method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify(value)
   });
   if (!r.ok) throw new Error('Firebase write failed');
   return r.json();
@@ -296,24 +345,55 @@ async function doLogin() {
     document.getElementById('login-error').style.display = 'block';
   }
 }
-
 document.getElementById('pw-input').addEventListener('keydown', e => { if (e.key==='Enter') doLogin(); });
-
 function logout() { sessionStorage.removeItem('session'); location.reload(); }
 
 function openChangePw()  { document.getElementById('pw-modal').classList.add('open'); }
 function closeChangePw() { document.getElementById('pw-modal').classList.remove('open'); }
-
 async function changePassword() {
-  const p1  = document.getElementById('new-pw-1').value;
-  const p2  = document.getElementById('new-pw-2').value;
-  const msg = document.getElementById('pw-modal-msg');
+  const p1=document.getElementById('new-pw-1').value, p2=document.getElementById('new-pw-2').value;
+  const msg=document.getElementById('pw-modal-msg');
   if (!p1) { msg.className='msg err'; msg.textContent='Enter a password.'; return; }
   if (p1!==p2) { msg.className='msg err'; msg.textContent='Passwords do not match.'; return; }
-  const hash = await sha256(p1);
-  await fbSet('config/pw_hash', hash);
+  await fbSet('config/pw_hash', await sha256(p1));
   msg.className='msg ok'; msg.textContent='Saved!';
   setTimeout(closeChangePw, 1200);
+}
+
+// ── EMAIL SETTINGS ─────────────────────────────────────────────────────────
+async function openEmailSettings() {
+  const modal = document.getElementById('email-modal');
+  try {
+    const emails = await fbGet('config/emails').catch(()=>({})) || {};
+    document.getElementById('email-1').value = emails.addr1 || 'gibsona@gmail.com';
+    document.getElementById('email-2').value = emails.addr2 || '';
+  } catch {}
+  modal.classList.add('open');
+}
+function closeEmailSettings() { document.getElementById('email-modal').classList.remove('open'); }
+async function saveEmailSettings() {
+  const addr1 = document.getElementById('email-1').value.trim();
+  const addr2 = document.getElementById('email-2').value.trim();
+  const msg   = document.getElementById('email-modal-msg');
+  await fbSet('config/emails', { addr1, addr2 });
+  msg.className='msg ok'; msg.textContent='Saved!';
+  setTimeout(closeEmailSettings, 1200);
+}
+
+// ── SEND EMAIL ALERT ───────────────────────────────────────────────────────
+async function sendAlert(messageText) {
+  try {
+    const emails = await fbGet('config/emails').catch(()=>({})) || {};
+    const recipients = [emails.addr1, emails.addr2].filter(Boolean);
+    for (const to of recipients) {
+      await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, {
+        to_email: to,
+        message:  messageText
+      });
+    }
+  } catch(e) {
+    console.warn('Email send failed:', e);
+  }
 }
 
 // ── SETUP ──────────────────────────────────────────────────────────────────
@@ -322,17 +402,17 @@ async function saveApiKey() {
   if (!key) { showSetupErr('Please enter your API key.'); return; }
   try {
     await fbSet('config/fd_api_key', key);
+    // Pre-save default email
+    await fbSet('config/emails', { addr1: 'gibsona@gmail.com', addr2: '' });
     document.getElementById('setup-screen').style.display = 'none';
     document.getElementById('app').style.display = 'block';
     loadFixtures();
   } catch(e) {
-    showSetupErr('Could not save to Firebase. Check your database rules are set to allow read/write.');
+    showSetupErr('Could not save to Firebase. Check your database rules allow read/write.');
   }
 }
-
 function showSetupErr(msg) {
-  const el = document.getElementById('setup-error');
-  el.textContent = msg; el.style.display = 'block';
+  const el=document.getElementById('setup-error'); el.textContent=msg; el.style.display='block';
 }
 
 // ── SHOW APP ───────────────────────────────────────────────────────────────
@@ -348,7 +428,18 @@ async function showApp() {
   }
 }
 
+// ── DOUBLE TICKET MATCH ────────────────────────────────────────────────────
+function isDoubleTicket(match) {
+  const matchDate = match.utcDate.substring(0, 10);
+  const oppName   = (match.awayTeam.shortName || match.awayTeam.name).toLowerCase();
+  return DOUBLE_TICKET_GAMES.some(g =>
+    g.date === matchDate || oppName.includes(g.opponent.toLowerCase())
+  );
+}
+
 // ── FIXTURES ───────────────────────────────────────────────────────────────
+let lastFixtureSnapshot = {};
+
 async function loadFixtures() {
   setStatus('loading', 'Loading…');
   let apiKey;
@@ -357,21 +448,35 @@ async function loadFixtures() {
 
   try {
     const apiUrl = `https://api.football-data.org/v4/teams/${NORWICH_TEAM_ID}/matches?season=${SEASON}&competitions=${COMPETITION}`;
-    const url = `https://corsproxy.io/?${encodeURIComponent(apiUrl)}`;
-    const res = await fetch(url, { headers: { 'X-Auth-Token': apiKey } });
-    const data = await res.json();
-    console.log('API status:', res.status, JSON.stringify(data).substring(0,300));
+    const url    = `https://corsproxy.io/?${encodeURIComponent(apiUrl)}`;
+    const res    = await fetch(url, { headers: { 'X-Auth-Token': apiKey } });
+    const data   = await res.json();
     if (!res.ok) {
       if (res.status===401||res.status===403) { setStatus('err','Invalid API key'); return; }
-      setStatus('err', `Error ${res.status}: ${data.message||res.statusText}`);
-      return;
+      setStatus('err', `Error ${res.status}: ${data.message||res.statusText}`); return;
     }
     if (!data.matches || data.matches.length===0) {
-      setStatus('err','No fixtures found yet');
-      document.getElementById('home-body').innerHTML = '<tr><td colspan="6" class="no-data">No 2025u201326 fixtures published yet u2014 check back soon.</td></tr>';
-      document.getElementById('away-body').innerHTML = '<tr><td colspan="5" class="no-data">No 2025u201326 fixtures published yet.</td></tr>';
+      setStatus('err','No fixtures yet');
+      document.getElementById('home-body').innerHTML = '<tr><td colspan="6" class="no-data">No 2026–27 fixtures published yet — check back soon.</td></tr>';
+      document.getElementById('away-body').innerHTML = '<tr><td colspan="5" class="no-data">No 2026–27 fixtures published yet.</td></tr>';
       return;
     }
+
+    // Check for fixture changes vs last load
+    const newSnapshot = {};
+    data.matches.forEach(m => { newSnapshot[m.id] = { date: m.utcDate, home: m.homeTeam.name, away: m.awayTeam.name }; });
+    const changes = [];
+    for (const [id, nw] of Object.entries(newSnapshot)) {
+      const old = lastFixtureSnapshot[id];
+      if (old && old.date !== nw.date) {
+        changes.push(`Fixture changed: ${nw.home} vs ${nw.away} — new date/time: ${fmtDate(nw.date)} ${fmtTime(nw.date)}`);
+      }
+    }
+    if (changes.length && Object.keys(lastFixtureSnapshot).length > 0) {
+      sendAlert('NCFC Fixture Change Alert\n\n' + changes.join('\n'));
+    }
+    lastFixtureSnapshot = newSnapshot;
+
     const assignments = await fbGet('assignments').catch(()=>({}));
     renderFixtures(data.matches || [], assignments || {});
     setStatus('ok', `Updated ${new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}`);
@@ -389,7 +494,6 @@ function setStatus(type, text) {
 
 const DAYS   = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-
 function fmtDate(dt) { const d=new Date(dt); return `${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`; }
 function fmtDay(dt)  { return DAYS[new Date(dt).getDay()]; }
 function fmtTime(dt) { return new Date(dt).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit',timeZone:'Europe/London'}); }
@@ -398,10 +502,10 @@ function fmtResult(m) {
   const s = m.score;
   if (!s||!s.fullTime||s.fullTime.home==null) return '—';
   const hg=s.fullTime.home, ag=s.fullTime.away;
-  const isHome = m.homeTeam.id===NORWICH_TEAM_ID;
+  const isHome=m.homeTeam.id===NORWICH_TEAM_ID;
   const nc=isHome?hg:ag, opp=isHome?ag:hg;
   let chip, res;
-  if (nc>opp)      { chip='result-w'; res='W'; }
+  if (nc>opp)       { chip='result-w'; res='W'; }
   else if (nc===opp){ chip='result-d'; res='D'; }
   else              { chip='result-l'; res='L'; }
   return `<span class="result-chip ${chip}">${res} ${hg}–${ag}</span>`;
@@ -414,30 +518,56 @@ function renderFixtures(matches, assignments) {
 
   const hBody = document.getElementById('home-body');
   if (!home.length) {
-    hBody.innerHTML = '<tr><td colspan="6" class="no-data">No home fixtures found for 2025–26 yet.</td></tr>';
+    hBody.innerHTML = '<tr><td colspan="6" class="no-data">No home fixtures found for 2026–27 yet.</td></tr>';
   } else {
     hBody.innerHTML = home.map(m => {
-      const id  = String(m.id);
-      const val = assignments[id] || '';
-      const past = new Date(m.utcDate) < now;
-      return `<tr class="${past?'past':''}">
+      const id      = String(m.id);
+      const val     = assignments[id] || '';
+      const past    = new Date(m.utcDate) < now;
+      const dbl     = isDoubleTicket(m);
+      const ex1     = assignments[id + '_ex1'] || '';
+      const ex2     = assignments[id + '_ex2'] || '';
+      const oppName = m.awayTeam.shortName || m.awayTeam.name;
+
+      const mainRow = `<tr class="${past?'past':''} ${dbl?'double-ticket':''}">
         <td class="td-date">${fmtDate(m.utcDate)}</td>
         <td class="td-day">${fmtDay(m.utcDate)}</td>
         <td class="td-time">${fmtTime(m.utcDate)}</td>
-        <td class="td-opponent"><span class="venue-chip home-chip">H</span> ${m.awayTeam.shortName||m.awayTeam.name}</td>
+        <td class="td-opponent">
+          <span class="venue-chip home-chip">H</span> ${oppName}
+          ${dbl?'<span class="double-chip">×2</span>':''}
+        </td>
         <td>${fmtResult(m)}</td>
-        <td><select class="assignee" data-val="${val}" data-id="${id}" onchange="assign(this)">
+        <td><select class="assignee" data-val="${val}" data-id="${id}" data-opp="${oppName}" data-date="${fmtDate(m.utcDate)}" onchange="assign(this)">
           <option value="" ${!val?'selected':''}>— Pick —</option>
           <option value="Adam" ${val==='Adam'?'selected':''}>Adam</option>
           <option value="Nick" ${val==='Nick'?'selected':''}>Nick</option>
         </select></td>
       </tr>`;
+
+      const extraRow = dbl ? `<tr class="${past?'past':''} double-extra">
+        <td colspan="5" style="color:var(--grey-700);font-size:0.78rem;padding-top:0.2rem;">
+          Extra tickets:
+        </td>
+        <td>
+          <div class="extra-tickets">
+            <input class="extra-name" type="text" placeholder="Guest 1" maxlength="30"
+              data-id="${id}_ex1" data-opp="${oppName}" data-date="${fmtDate(m.utcDate)}"
+              value="${ex1}" onchange="assignExtra(this)" />
+            <input class="extra-name" type="text" placeholder="Guest 2" maxlength="30"
+              data-id="${id}_ex2" data-opp="${oppName}" data-date="${fmtDate(m.utcDate)}"
+              value="${ex2}" onchange="assignExtra(this)" />
+          </div>
+        </td>
+      </tr>` : '';
+
+      return mainRow + extraRow;
     }).join('');
   }
 
   const aBody = document.getElementById('away-body');
   if (!away.length) {
-    aBody.innerHTML = '<tr><td colspan="5" class="no-data">No away fixtures found for 2025–26 yet.</td></tr>';
+    aBody.innerHTML = '<tr><td colspan="5" class="no-data">No away fixtures found for 2026–27 yet.</td></tr>';
   } else {
     aBody.innerHTML = away.map(m => {
       const past = new Date(m.utcDate) < now;
@@ -454,25 +584,41 @@ function renderFixtures(matches, assignments) {
   updateTally(home, assignments);
 }
 
-// ── ASSIGN ─────────────────────────────────────────────────────────────────
+// ── ASSIGN (dropdown) ──────────────────────────────────────────────────────
 let saveTimer = null;
 const pendingAssignments = {};
 
 function assign(sel) {
-  const id  = sel.dataset.id;
-  const val = sel.value;
+  const id   = sel.dataset.id;
+  const val  = sel.value;
+  const opp  = sel.dataset.opp;
+  const date = sel.dataset.date;
+  const old  = sel.dataset.val;
   sel.dataset.val = val;
   pendingAssignments[id] = val || null;
   setSaveStatus('Saving…');
   clearTimeout(saveTimer);
-  saveTimer = setTimeout(flushAssignments, 600);
+  saveTimer = setTimeout(() => flushAssignments(opp, date, old, val, 'season ticket'), 600);
   recalcTally();
 }
 
-async function flushAssignments() {
+// ── ASSIGN (extra text inputs) ─────────────────────────────────────────────
+function assignExtra(input) {
+  const id   = input.dataset.id;
+  const val  = input.value.trim();
+  const opp  = input.dataset.opp;
+  const date = input.dataset.date;
+  const slot = id.endsWith('_ex1') ? 'Guest 1' : 'Guest 2';
+  pendingAssignments[id] = val || null;
+  setSaveStatus('Saving…');
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => flushAssignments(opp, date, '', val, slot), 600);
+}
+
+async function flushAssignments(opp, date, oldVal, newVal, slot) {
   try {
-    // Read current, merge, write back
     const current = await fbGet('assignments').catch(()=>({})) || {};
+    const changes = [];
     for (const [id, val] of Object.entries(pendingAssignments)) {
       if (val) { current[id] = val; } else { delete current[id]; }
       delete pendingAssignments[id];
@@ -480,20 +626,24 @@ async function flushAssignments() {
     await fbSet('assignments', current);
     setSaveStatus('Saved ✓');
     setTimeout(()=>setSaveStatus(''), 2000);
+
+    // Email alert
+    if (newVal !== oldVal) {
+      const msg = `NCFC Ticket Tracker — Assignment Updated\n\nGame: ${opp} (${date})\nSlot: ${slot}\nChanged to: ${newVal || '(unassigned)'}`;
+      sendAlert(msg);
+    }
   } catch(e) {
     setSaveStatus('Save failed — check connection');
   }
 }
 
-function setSaveStatus(msg) {
-  document.getElementById('save-status').textContent = msg;
-}
+function setSaveStatus(msg) { document.getElementById('save-status').textContent = msg; }
 
 function recalcTally() {
   let adam=0, nick=0, un=0, total=0;
   document.querySelectorAll('select.assignee').forEach(s => {
     total++;
-    const v = s.value;
+    const v=s.value;
     if (v==='Adam') adam++;
     else if (v==='Nick') nick++;
     else un++;
@@ -507,7 +657,7 @@ function recalcTally() {
 function updateTally(homeMatches, assignments) {
   let adam=0, nick=0, total=homeMatches.length;
   homeMatches.forEach(m => {
-    const v = assignments[String(m.id)];
+    const v=assignments[String(m.id)];
     if (v==='Adam') adam++;
     else if (v==='Nick') nick++;
   });
