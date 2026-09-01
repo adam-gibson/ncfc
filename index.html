@@ -446,22 +446,11 @@ async function loadFixtures() {
   try { apiKey = await fbGet('config/fd_api_key'); } catch { setStatus('err','Firebase error'); return; }
   if (!apiKey) { setStatus('err','No API key'); return; }
 
-    try {
+   try {
     const apiUrl = `https://api.football-data.org/v4/teams/${NORWICH_TEAM_ID}/matches?season=${SEASON}&competitions=${COMPETITION}`;
-    const proxies = [
-      `https://corsproxy.io/?${encodeURIComponent(apiUrl)}`,
-      `https://api.allorigins.win/raw?url=${encodeURIComponent(apiUrl)}`,
-      `https://thingproxy.freeboard.io/fetch/${apiUrl}`,
-    ];
-    let res, data;
-    for (const url of proxies) {
-      try {
-        res = await fetch(url, { headers: { 'X-Auth-Token': apiKey } });
-        data = await res.json();
-        if (data && data.matches) break;
-      } catch(e) { continue; }
-    }
-    if (!data || !data.matches) throw new Error('All proxies failed');
+    const proxyUrl = `https://late-queen-c72c.gibsona.workers.dev/?url=${encodeURIComponent(apiUrl)}`;
+    const res = await fetch(proxyUrl, { headers: { 'X-Auth-Token': apiKey } });
+    const data = await res.json();
     if (data.matches.length===0) {
       setStatus('err','No fixtures yet');
       document.getElementById('home-body').innerHTML = '<tr><td colspan="6" class="no-data">No 2026–27 fixtures published yet — check back soon.</td></tr>';
