@@ -448,7 +448,7 @@ async function loadFixtures() {
 
   try {
     const apiUrl = `https://api.football-data.org/v4/teams/${NORWICH_TEAM_ID}/matches?season=${SEASON}&competitions=${COMPETITION}`;
-    const url    = `https://corsproxy.io/?${encodeURIComponent(apiUrl)}`;
+    const url    = `https://api.allorigins.win/raw?url=${encodeURIComponent(apiUrl)}`;
     const res    = await fetch(url, { headers: { 'X-Auth-Token': apiKey } });
     const data   = await res.json();
     if (!res.ok) {
